@@ -24,6 +24,8 @@ Repodaki `.github/workflows/build-windows.yml` otomatik olarak Windows'ta derler
 - Son çalışan `Build C-OS EXE (Windows)` workflow'unu aç
 - `C-OS-exe` artifact'ini indir
 
+> Not: `release` işi pull request'lerde **bilerek** skip olur; sadece `v*` tag push'larında çalışır.
+
 ### 2) Tag ile direkt GitHub Release'e EXE koyma
 
 Bir tag push edersen workflow `C-OS.exe` dosyasını release asset olarak da yükler.
