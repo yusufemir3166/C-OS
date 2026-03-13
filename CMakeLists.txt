@@ -20,3 +20,10 @@ add_executable(C-OS WIN32
   shell32
   msimg32
 )
+
+if(MSVC)
+  target_link_options(C-OS PRIVATE
+    "/MANIFEST:EMBED"
+    "/MANIFESTINPUT:${CMAKE_CURRENT_SOURCE_DIR}/resources/app.manifest"
+  )
+endif()

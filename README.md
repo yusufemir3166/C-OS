@@ -70,7 +70,7 @@ Bu durum yalnızca bu projeye özel değildir.
 Bu repo tarafında azaltmak için:
 
 - EXE içine `version info` metadata eklendi (`resources/version.rc`)
-- UAC seviyesi `asInvoker` olan manifest eklendi (`resources/app.manifest`)
+- UAC seviyesi `asInvoker` olan manifest eklendi (`resources/app.manifest`) ve MSVC link adımında gömülüyor
 
 Kalıcı çözüm için:
 
