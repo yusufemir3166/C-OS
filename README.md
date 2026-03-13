@@ -4,7 +4,7 @@ Bu proje, **tam teşekküllü bir işletim sistemi** değil; C++ ile yazılmış
 
 ## Özellikler
 
-- Win32 API ile çizilmiş tam ekran masaüstü görünümü
+- Win32 API ile çizilmiş masaüstü görünümü
 - Altta görev çubuğu ve "Start" butonu
 - Basit saat gösterimi
 - Başlat menüsü aç/kapa
@@ -14,14 +14,33 @@ Bu proje, **tam teşekküllü bir işletim sistemi** değil; C++ ile yazılmış
 - Fare ile sürüklenebilir pencereler
 - Her pencerede kapatma (`X`) butonu
 
-## Derleme (Windows)
+## EXE alma yolları
+
+### 1) GitHub Actions artifact (en kolay)
+
+Repodaki `.github/workflows/build-windows.yml` otomatik olarak Windows'ta derler ve `C-OS.exe` artifact'ini üretir.
+
+- **Actions** sekmesine gir
+- Son çalışan `Build C-OS EXE (Windows)` workflow'unu aç
+- `C-OS-exe` artifact'ini indir
+
+### 2) Tag ile direkt GitHub Release'e EXE koyma
+
+Bir tag push edersen workflow `C-OS.exe` dosyasını release asset olarak da yükler.
+
+Örnek:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+## Derleme (Windows, native)
 
 Gereksinimler:
 
 - CMake 3.16+
 - Visual Studio 2022 (veya Build Tools)
-
-Komutlar:
 
 ```bash
 cmake -S . -B build -G "Visual Studio 17 2022"
@@ -32,14 +51,17 @@ cmake --build build --config Release
 
 - `build/Release/C-OS.exe`
 
-## GitHub'da EXE üretimi
+## Derleme (Linux -> Windows cross-compile)
 
-Repoda `.github/workflows/build-windows.yml` workflow'u vardır.
+MinGW kuruluysa:
 
-- Her `push`/`pull_request` için Windows'ta derler
-- `C-OS.exe` dosyasını artifact olarak yükler
+```bash
+./scripts/build-exe.sh
+```
 
-Böylece GitHub üzerinden indirilebilir bir `.exe` elde edebilirsin.
+Çıktı tipik olarak:
+
+- `build-mingw/C-OS.exe`
 
 ## Not
 

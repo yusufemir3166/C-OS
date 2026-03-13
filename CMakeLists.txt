@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(C_OS LANGUAGES CXX)
 
-if(NOT WIN32)
-  message(FATAL_ERROR "This project currently targets Windows only (Win32 API).")
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
+  message(FATAL_ERROR "This project targets Windows only (native or cross-compiled).")
 endif()
 
 set(CMAKE_CXX_STANDARD 17)
