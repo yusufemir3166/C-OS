@@ -1,0 +1,26 @@
+name: Build C-OS (Windows)
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build -G "Visual Studio 17 2022"
+
+      - name: Build Release
+        run: cmake --build build --config Release
+
+      - name: Upload exe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: C-OS-exe
+          path: build/Release/C-OS.exe
