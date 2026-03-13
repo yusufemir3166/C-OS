@@ -10,6 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(C-OS WIN32
   src/main.cpp
+  resources/version.rc
 )
 
 # Win32/GDI libraries

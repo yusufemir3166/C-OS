@@ -6,12 +6,11 @@ Bu proje, **tam teşekküllü bir işletim sistemi** değil; C++ ile yazılmış
 
 - Win32 API ile çizilmiş masaüstü görünümü
 - Altta görev çubuğu ve "Start" butonu
-- Basit saat gösterimi
+- Basit saat + tarih gösterimi
 - Başlat menüsü aç/kapa
-- Simüle edilmiş iki uygulama penceresi:
-  - Notepad
-  - Computer
-- Fare ile sürüklenebilir pencereler
+- Masaüstü ikonları (Notepad / Computer)
+- Simüle edilmiş iki uygulama penceresi
+- Fare ile sürüklenebilir pencereler (ekran sınırına clamp)
 - Her pencerede kapatma (`X`) butonu
 
 ## EXE alma yolları
@@ -29,8 +28,6 @@ Repodaki `.github/workflows/build-windows.yml` otomatik olarak Windows'ta derler
 ### 2) Tag ile direkt GitHub Release'e EXE koyma
 
 Bir tag push edersen workflow `C-OS.exe` dosyasını release asset olarak da yükler.
-
-Örnek:
 
 ```bash
 git tag v0.1.0
@@ -64,6 +61,24 @@ MinGW kuruluysa:
 Çıktı tipik olarak:
 
 - `build-mingw/C-OS.exe`
+
+## Windows Defender / SmartScreen notu
+
+`"Bilinmeyen yayıncı"` veya `"bilgisayarınızı tehlikeye atabilir"` uyarıları genelde **imzasız EXE** dosyalarında görülür.
+Bu durum yalnızca bu projeye özel değildir.
+
+Bu repo tarafında azaltmak için:
+
+- EXE içine `version info` metadata eklendi (`resources/version.rc`)
+- UAC seviyesi `asInvoker` olan manifest eklendi (`resources/app.manifest`)
+
+Kalıcı çözüm için:
+
+1. Kod imzalama sertifikası (tercihen EV Code Signing) ile `C-OS.exe` imzala.
+2. İmzalı dosyayı release üzerinden dağıt.
+3. Her sürümde aynı ürün adı/şirket bilgisi kullan.
+
+> Özet: SmartScreen/Defender uyarısını tamamen kaldırmanın güvenilir yolu dijital imzadır.
 
 ## Not
 
