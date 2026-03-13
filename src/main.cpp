@@ -1,3 +1,4 @@
+#define NOMINMAX
 #include <windows.h>
 #ifndef GET_X_LPARAM
 #define GET_X_LPARAM(lp) ((int)(short)LOWORD(lp))
@@ -6,7 +7,6 @@
 #define GET_Y_LPARAM(lp) ((int)(short)HIWORD(lp))
 #endif
 
-#include <algorithm>
 #include <ctime>
 #include <string>
 
@@ -254,17 +254,24 @@ static void OpenWindow(FakeWindow& w) {
     w.visible = true;
 }
 
+
+static int ClampInt(int value, int low, int high) {
+    if (value < low) return low;
+    if (value > high) return high;
+    return value;
+}
+
 static void ClampWindowToClient(FakeWindow& w, const RECT& client) {
     int width = w.rect.right - w.rect.left;
     int height = w.rect.bottom - w.rect.top;
 
     int minLeft = 0;
-    int maxLeft = std::max(0, client.right - width);
+    int maxLeft = (client.right - width > 0) ? (client.right - width) : 0;
     int minTop = 0;
-    int maxTop = std::max(0, client.bottom - kTaskbarHeight - height);
+    int maxTop = (client.bottom - kTaskbarHeight - height > 0) ? (client.bottom - kTaskbarHeight - height) : 0;
 
-    w.rect.left = std::clamp(w.rect.left, minLeft, maxLeft);
-    w.rect.top = std::clamp(w.rect.top, minTop, maxTop);
+    w.rect.left = ClampInt(w.rect.left, minLeft, maxLeft);
+    w.rect.top = ClampInt(w.rect.top, minTop, maxTop);
     w.rect.right = w.rect.left + width;
     w.rect.bottom = w.rect.top + height;
 }
