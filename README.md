@@ -10,6 +10,8 @@ Bu proje, **tam teşekküllü bir işletim sistemi** değil; C++ ile yazılmış
 - Başlat menüsü aç/kapa
 - Masaüstü ikonları (Notepad / Computer)
 - Simüle edilmiş iki uygulama penceresi
+- Notepad: yazı yazma, New / Insert Time / Clear aksiyonları
+- Computer: dosya listesi + tıklayınca detay paneli
 - Fare ile sürüklenebilir pencereler (ekran sınırına clamp)
 - Her pencerede kapatma (`X`) butonu
 
