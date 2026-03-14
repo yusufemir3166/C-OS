@@ -13,7 +13,6 @@
 #include <string>
 #include <vector>
 
-#include "generated_app_content.h"
 
 struct AppDef {
     std::wstring name;
@@ -333,33 +332,6 @@ static void DrawAppSpecificWidgets(HDC hdc, const AppWindow& w, const RECT& cont
     }
 }
 
-static std::wstring BuildAppContent(const AppWindow& w) {
-    const AppDef& app = g_apps[w.appIndex];
-    std::wstring text;
-    text += app.summary + L"\r\n\r\n";
-    text += L"Live State\r\n";
-    text += L"- action metric: " + std::to_wstring(w.metric) + L"\r\n";
-    text += L"- mode: " + std::wstring(w.toggle ? L"ON" : L"OFF") + L"\r\n";
-    text += L"- variant: " + std::to_wstring(w.selection + 1) + L"\r\n\r\n";
-
-    text += L"App Feed\r\n";
-    int base = (w.selection * 29 + w.metric) % 280;
-    for (int i = 0; i < 8; ++i) {
-        int idx = (base + i * 3) % 320;
-        text += std::wstring(L"- ") + kAppLore[w.appIndex][idx] + L"\r\n";
-    }
-
-    if (w.appIndex == 0 && !w.memo.empty()) {
-        text += L"\r\nMemo\r\n" + w.memo + L"\r\n";
-    }
-
-    if (w.appIndex == 14) {
-        text += L"\r\nDice value: " + std::to_wstring((w.metric % 6) + 1) + L"\r\n";
-    }
-
-    return text;
-}
-
 static void DrawWindow(HDC hdc, const AppWindow& w) {
     const AppDef& app = g_apps[w.appIndex];
 
@@ -395,9 +367,6 @@ static void DrawWindow(HDC hdc, const AppWindow& w) {
 
     DrawAppSpecificWidgets(hdc, w, content);
 
-    RECT feed = MakeRect(content.left + 10, content.top + 134, content.right - 10, content.bottom - 10);
-    DrawPanel(hdc, feed, RGB(255, 255, 255), RGB(201, 210, 222));
-    DrawBlock(hdc, MakeRect(feed.left + 8, feed.top + 8, feed.right - 8, feed.bottom - 8), BuildAppContent(w), RGB(25, 25, 25), 14, false);
 }
 
 static void DrawDesktop(HDC hdc, const RECT& client) {

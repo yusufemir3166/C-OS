@@ -13,7 +13,6 @@ Bu proje, **tam teşekküllü bir işletim sistemi** değil; C++ ile yazılmış
 - Her uygulamanın kendi ikonu (harf + renk), kategori etiketi ve farklı aksiyon davranışı
 - Her pencerede metrik/toggle/variant butonları + uygulamaya özel canlı durum
 - Her uygulamanın kendine özel widget/panel arayüzü (progress, terminal paneli, palette, inbox vb.)
-- Büyük içerik veri seti ile her uygulamada farklı feed blokları (`src/generated_app_content.h`)
 - Fare ile sürüklenebilir pencereler (ekran sınırına clamp)
 - Her pencerede kapatma (`X`) butonu
 
