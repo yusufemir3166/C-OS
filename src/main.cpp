@@ -13,14 +13,15 @@
 #include <string>
 #include <vector>
 
+#include "generated_app_content.h"
+
 struct AppDef {
     std::wstring name;
     std::wstring category;
     std::wstring summary;
-    std::wstring line1;
-    std::wstring line2;
-    std::wstring line3;
     std::wstring actionLabel;
+    wchar_t iconGlyph;
+    COLORREF iconColor;
 };
 
 struct AppWindow {
@@ -29,12 +30,12 @@ struct AppWindow {
     int metric = 0;
     int selection = 0;
     bool toggle = false;
-    std::wstring notes;
+    std::wstring memo;
 };
 
 static const int kTaskbarHeight = 44;
 static const int kStartButtonWidth = 96;
-static const int kMenuWidth = 330;
+static const int kMenuWidth = 360;
 static const int kMenuHeight = 560;
 
 static bool g_startMenuOpen = false;
@@ -46,9 +47,7 @@ static std::vector<AppDef> g_apps;
 static std::vector<AppWindow> g_windows;
 
 static int ClampInt(int v, int lo, int hi) {
-    if (v < lo) return lo;
-    if (v > hi) return hi;
-    return v;
+    return std::max(lo, std::min(v, hi));
 }
 
 static RECT MakeRect(int l, int t, int r, int b) {
@@ -74,43 +73,38 @@ static RECT StartMenuItemRect(const RECT& client, int index) {
     return MakeRect(m.left + 12, top, m.right - 12, top + 26);
 }
 
-static RECT WindowTitleRect(const AppWindow& w) {
-    return MakeRect(w.rect.left, w.rect.top, w.rect.right, w.rect.top + 34);
+static RECT DesktopIconRect(int index) {
+    int col = index % 2;
+    int row = index / 2;
+    int left = 14 + col * 92;
+    int top = 20 + row * 82;
+    return MakeRect(left, top, left + 86, top + 74);
 }
 
-static RECT WindowCloseRect(const AppWindow& w) {
-    return MakeRect(w.rect.right - 42, w.rect.top + 5, w.rect.right - 10, w.rect.top + 29);
-}
-
-static RECT WindowActionButtonRect(const AppWindow& w) {
-    return MakeRect(w.rect.left + 14, w.rect.top + 106, w.rect.left + 210, w.rect.top + 136);
-}
-
-static RECT WindowToggleButtonRect(const AppWindow& w) {
-    return MakeRect(w.rect.left + 220, w.rect.top + 106, w.rect.left + 360, w.rect.top + 136);
-}
-
-static RECT WindowSelectButtonRect(const AppWindow& w) {
-    return MakeRect(w.rect.left + 370, w.rect.top + 106, w.rect.left + 540, w.rect.top + 136);
-}
-
-static RECT WindowContentRect(const AppWindow& w) {
-    return MakeRect(w.rect.left + 14, w.rect.top + 146, w.rect.right - 14, w.rect.bottom - 14);
-}
+static RECT WindowTitleRect(const AppWindow& w) { return MakeRect(w.rect.left, w.rect.top, w.rect.right, w.rect.top + 34); }
+static RECT WindowCloseRect(const AppWindow& w) { return MakeRect(w.rect.right - 42, w.rect.top + 5, w.rect.right - 10, w.rect.top + 29); }
+static RECT WindowActionButtonRect(const AppWindow& w) { return MakeRect(w.rect.left + 14, w.rect.top + 106, w.rect.left + 220, w.rect.top + 136); }
+static RECT WindowToggleButtonRect(const AppWindow& w) { return MakeRect(w.rect.left + 228, w.rect.top + 106, w.rect.left + 378, w.rect.top + 136); }
+static RECT WindowSelectButtonRect(const AppWindow& w) { return MakeRect(w.rect.left + 386, w.rect.top + 106, w.rect.left + 560, w.rect.top + 136); }
+static RECT WindowContentRect(const AppWindow& w) { return MakeRect(w.rect.left + 14, w.rect.top + 146, w.rect.right - 14, w.rect.bottom - 14); }
 
 static void DrawGradient(HDC hdc, const RECT& rc, COLORREF top, COLORREF bottom) {
-    TRIVERTEX vert[2] = {
+    TRIVERTEX v[2] = {
         { rc.left, rc.top, (COLOR16)(GetRValue(top) << 8), (COLOR16)(GetGValue(top) << 8), (COLOR16)(GetBValue(top) << 8), 0x0000 },
         { rc.right, rc.bottom, (COLOR16)(GetRValue(bottom) << 8), (COLOR16)(GetGValue(bottom) << 8), (COLOR16)(GetBValue(bottom) << 8), 0x0000 }
     };
     GRADIENT_RECT gRect = { 0, 1 };
-    GradientFill(hdc, vert, 2, &gRect, 1, GRADIENT_FILL_RECT_V);
+    GradientFill(hdc, v, 2, &gRect, 1, GRADIENT_FILL_RECT_V);
+}
+
+static HFONT CreateUIFont(int h, bool bold = false) {
+    return CreateFontW(h, 0, 0, 0, bold ? FW_BOLD : FW_NORMAL, FALSE, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+        DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
 }
 
 static void DrawCentered(HDC hdc, const RECT& rc, const std::wstring& text, COLORREF color, int height, bool bold = false) {
-    HFONT font = CreateFontW(height, 0, 0, 0, bold ? FW_BOLD : FW_NORMAL, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-        DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+    HFONT font = CreateUIFont(height, bold);
     HFONT old = (HFONT)SelectObject(hdc, font);
     SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, color);
@@ -121,9 +115,7 @@ static void DrawCentered(HDC hdc, const RECT& rc, const std::wstring& text, COLO
 }
 
 static void DrawBlock(HDC hdc, const RECT& rc, const std::wstring& text, COLORREF color, int height, bool bold = false) {
-    HFONT font = CreateFontW(height, 0, 0, 0, bold ? FW_BOLD : FW_NORMAL, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-        DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+    HFONT font = CreateUIFont(height, bold);
     HFONT old = (HFONT)SelectObject(hdc, font);
     SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, color);
@@ -147,21 +139,21 @@ static void DrawButton(HDC hdc, const RECT& rc, const std::wstring& label) {
 
 static void SeedApps() {
     g_apps = {
-        {L"Notepad Pro", L"Productivity", L"Rich text notes and quick snippets", L"- Structured notes", L"- Quick memo workflow", L"- Pin important lines", L"Append line"},
-        {L"File Explorer", L"System", L"Browse folders and inspect metadata", L"- Project directories", L"- Recent files", L"- Quick properties", L"Refresh list"},
-        {L"Terminal", L"Developer", L"Command runner simulation with sessions", L"- Build logs", L"- Environment info", L"- Session state", L"Run command"},
-        {L"Calculator", L"Utilities", L"Fast arithmetic helper", L"- Basic operations", L"- Memory register", L"- History preview", L"Add +7"},
-        {L"Calendar", L"Productivity", L"Weekly planning and reminders", L"- Sprint meetings", L"- Deadlines", L"- Time blocks", L"Next day"},
-        {L"Music Player", L"Media", L"Playlist and playback controls", L"- Chill mix", L"- Coding beats", L"- Focus mode", L"Next track"},
-        {L"Video Player", L"Media", L"Timeline and playback status", L"- Demo clip", L"- Playback speed", L"- Subtitle toggle", L"+10 sec"},
-        {L"Browser", L"Internet", L"Bookmarks and web shortcuts", L"- Docs", L"- Dashboard", L"- Search profile", L"Open tab"},
-        {L"Settings", L"System", L"System preference center", L"- Appearance", L"- Privacy", L"- Notifications", L"Toggle mode"},
-        {L"Task Manager", L"System", L"Process and resource overview", L"- CPU usage", L"- Memory graph", L"- Foreground apps", L"Sample update"},
-        {L"Weather", L"Info", L"City forecast dashboard", L"- Istanbul", L"- Berlin", L"- Tokyo", L"Switch city"},
-        {L"Clock", L"Utilities", L"World clocks and stopwatch", L"- Local clock", L"- UTC offset", L"- Timer state", L"Start/Stop"},
-        {L"Paint", L"Creative", L"Color and sketch workspace", L"- Palette selection", L"- Brush mode", L"- Layer info", L"Change color"},
-        {L"Mail", L"Communication", L"Inbox and message status", L"- Primary inbox", L"- Sent queue", L"- Draft sync", L"Compose"},
-        {L"Game Center", L"Fun", L"Mini game launcher and stats", L"- Dice mode", L"- Arcade list", L"- Score tracker", L"Roll dice"}
+        {L"Notepad Pro", L"Productivity", L"Advanced rich notes and snippets", L"Append line", L'N', RGB(50, 130, 220)},
+        {L"File Explorer", L"System", L"Folders, metadata and quick access", L"Refresh", L'F', RGB(248, 190, 54)},
+        {L"Terminal", L"Developer", L"Command sessions and logs", L"Run cmd", L'T', RGB(56, 56, 58)},
+        {L"Calculator", L"Utilities", L"Quick arithmetic helper", L"+7", L'C', RGB(76, 167, 90)},
+        {L"Calendar", L"Productivity", L"Weekly planner and reminders", L"Next day", L'K', RGB(123, 93, 230)},
+        {L"Music Player", L"Media", L"Playlist and playback controls", L"Next track", L'M', RGB(237, 80, 115)},
+        {L"Video Player", L"Media", L"Timeline, subtitle and speed", L"+10 sec", L'V', RGB(230, 116, 60)},
+        {L"Browser", L"Internet", L"Tabs and bookmarks", L"Open tab", L'B', RGB(72, 153, 236)},
+        {L"Settings", L"System", L"Preferences and personalization", L"Apply", L'S', RGB(105, 117, 130)},
+        {L"Task Manager", L"System", L"Resource snapshot and process list", L"Sample", L'R', RGB(91, 160, 200)},
+        {L"Weather", L"Info", L"Forecast and city switch", L"Switch city", L'W', RGB(66, 178, 231)},
+        {L"Clock", L"Utilities", L"Time tools and stopwatch", L"Tick", L'O', RGB(85, 170, 116)},
+        {L"Paint", L"Creative", L"Color and brush workspace", L"Paint +", L'P', RGB(224, 89, 142)},
+        {L"Mail", L"Communication", L"Inbox and compose flow", L"Compose", L'A', RGB(87, 119, 228)},
+        {L"Game Center", L"Fun", L"Mini game hub and scores", L"Roll dice", L'G', RGB(250, 168, 41)}
     };
 }
 
@@ -174,13 +166,12 @@ static void OpenAppWindow(int appIndex) {
     AppWindow w;
     int n = (int)g_windows.size();
     w.appIndex = appIndex;
-    w.rect = MakeRect(120 + (n % 5) * 36, 90 + (n % 4) * 26, 760 + (n % 5) * 36, 520 + (n % 4) * 26);
+    w.rect = MakeRect(140 + (n % 5) * 26, 90 + (n % 4) * 24, 910 + (n % 5) * 26, 620 + (n % 4) * 24);
     w.metric = 0;
     w.selection = 0;
     w.toggle = false;
-    w.notes = L"";
     if (appIndex == 0) {
-        w.notes = L"Welcome to Notepad Pro\r\n\r\nType here after focusing this window.";
+        w.memo = L"Editable note timeline started.";
     }
     g_windows.push_back(w);
 }
@@ -202,28 +193,52 @@ static void BringToFront(int index) {
 static void ClampWindowToClient(AppWindow& w, const RECT& client) {
     int width = w.rect.right - w.rect.left;
     int height = w.rect.bottom - w.rect.top;
-    int maxLeft = (client.right - width > 0) ? client.right - width : 0;
-    int maxTop = (client.bottom - kTaskbarHeight - height > 0) ? client.bottom - kTaskbarHeight - height : 0;
+    int maxLeft = std::max(0, client.right - width);
+    int maxTop = std::max(0, client.bottom - kTaskbarHeight - height);
     w.rect.left = ClampInt(w.rect.left, 0, maxLeft);
     w.rect.top = ClampInt(w.rect.top, 0, maxTop);
     w.rect.right = w.rect.left + width;
     w.rect.bottom = w.rect.top + height;
 }
 
-static void DrawDesktop(HDC hdc, const RECT& client) {
-    DrawGradient(hdc, client, RGB(93, 151, 224), RGB(16, 71, 144));
+static void DrawDesktopIcon(HDC hdc, const RECT& rc, const AppDef& app) {
+    RECT panel = rc;
+    DrawGradient(hdc, panel, RGB(40, 93, 160), RGB(24, 64, 120));
 
-    RECT leftPanel = MakeRect(8, 8, 126, client.bottom - kTaskbarHeight - 8);
-    DrawGradient(hdc, leftPanel, RGB(42, 94, 162), RGB(24, 65, 122));
+    RECT glyph = MakeRect(rc.left + 27, rc.top + 8, rc.left + 59, rc.top + 40);
+    HBRUSH gB = CreateSolidBrush(app.iconColor);
+    FillRect(hdc, &glyph, gB);
+    DeleteObject(gB);
 
-    for (int i = 0; i < 6; ++i) {
-        RECT ic = MakeRect(18, 24 + i * 86, 116, 100 + i * 86);
-        HBRUSH b = CreateSolidBrush(RGB(255, 255, 255));
-        RECT glyph = MakeRect(ic.left + 30, ic.top + 2, ic.left + 64, ic.top + 36);
-        FillRect(hdc, &glyph, b);
-        DeleteObject(b);
-        DrawCentered(hdc, MakeRect(ic.left + 2, ic.top + 40, ic.right - 2, ic.bottom), g_apps[i].name, RGB(240, 247, 255), 13, false);
+    DrawCentered(hdc, glyph, std::wstring(1, app.iconGlyph), RGB(255, 255, 255), 16, true);
+    DrawCentered(hdc, MakeRect(rc.left + 2, rc.top + 42, rc.right - 2, rc.bottom - 3), app.name, RGB(238, 247, 255), 12, false);
+}
+
+static std::wstring BuildAppContent(const AppWindow& w) {
+    const AppDef& app = g_apps[w.appIndex];
+    std::wstring text;
+    text += app.summary + L"\r\n\r\n";
+    text += L"Live State\r\n";
+    text += L"- action metric: " + std::to_wstring(w.metric) + L"\r\n";
+    text += L"- mode: " + std::wstring(w.toggle ? L"ON" : L"OFF") + L"\r\n";
+    text += L"- variant: " + std::to_wstring(w.selection + 1) + L"\r\n\r\n";
+
+    text += L"App Feed\r\n";
+    int base = (w.selection * 29 + w.metric) % 280;
+    for (int i = 0; i < 8; ++i) {
+        int idx = (base + i * 3) % 320;
+        text += std::wstring(L"• ") + kAppLore[w.appIndex][idx] + L"\r\n";
     }
+
+    if (w.appIndex == 0 && !w.memo.empty()) {
+        text += L"\r\nMemo\r\n" + w.memo + L"\r\n";
+    }
+
+    if (w.appIndex == 14) {
+        text += L"\r\nDice value: " + std::to_wstring((w.metric % 6) + 1) + L"\r\n";
+    }
+
+    return text;
 }
 
 static void DrawWindow(HDC hdc, const AppWindow& w) {
@@ -257,32 +272,27 @@ static void DrawWindow(HDC hdc, const AppWindow& w) {
     DrawButton(hdc, WindowSelectButtonRect(w), L"Variant " + std::to_wstring(w.selection + 1));
 
     RECT content = WindowContentRect(w);
-    HBRUSH contentB = CreateSolidBrush(RGB(255, 255, 255));
-    FillRect(hdc, &content, contentB);
-    DeleteObject(contentB);
+    HBRUSH cB = CreateSolidBrush(RGB(255, 255, 255));
+    FillRect(hdc, &content, cB);
+    DeleteObject(cB);
 
-    HPEN contentP = CreatePen(PS_SOLID, 1, RGB(187, 198, 216));
-    HPEN oldCp = (HPEN)SelectObject(hdc, contentP);
+    HPEN cP = CreatePen(PS_SOLID, 1, RGB(187, 198, 216));
+    HPEN oldCp = (HPEN)SelectObject(hdc, cP);
     HGDIOBJ oldCb = SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
     Rectangle(hdc, content.left, content.top, content.right, content.bottom);
     SelectObject(hdc, oldCb);
     SelectObject(hdc, oldCp);
-    DeleteObject(contentP);
+    DeleteObject(cP);
 
-    std::wstring summary = app.summary + L"\r\n\r\n" + app.line1 + L"\r\n" + app.line2 + L"\r\n" + app.line3 +
-        L"\r\n\r\nStatus Metrics\r\n- Action Count: " + std::to_wstring(w.metric) +
-        L"\r\n- Mode: " + (w.toggle ? std::wstring(L"Enabled") : std::wstring(L"Disabled")) +
-        L"\r\n- Variant Index: " + std::to_wstring(w.selection + 1);
+    DrawBlock(hdc, MakeRect(content.left + 10, content.top + 8, content.right - 10, content.bottom - 8), BuildAppContent(w), RGB(25, 25, 25), 15, false);
+}
 
-    if (w.appIndex == 0) {
-        summary += L"\r\n\r\nNotes:\r\n" + w.notes;
+static void DrawDesktop(HDC hdc, const RECT& client) {
+    DrawGradient(hdc, client, RGB(93, 151, 224), RGB(16, 71, 144));
+
+    for (int i = 0; i < 15; ++i) {
+        DrawDesktopIcon(hdc, DesktopIconRect(i), g_apps[i]);
     }
-
-    if (w.appIndex == 14) {
-        summary += L"\r\n\r\nLast Dice: " + std::to_wstring((w.metric % 6) + 1);
-    }
-
-    DrawBlock(hdc, MakeRect(content.left + 10, content.top + 8, content.right - 10, content.bottom - 8), summary, RGB(25, 25, 25), 15, false);
 }
 
 static void DrawTaskbar(HDC hdc, const RECT& client) {
@@ -294,11 +304,11 @@ static void DrawTaskbar(HDC hdc, const RECT& client) {
     DrawCentered(hdc, start, L"Start", RGB(255, 255, 255), 18, true);
 
     int x = kStartButtonWidth + 6;
-    for (int i = 0; i < (int)g_windows.size() && i < 8; ++i) {
-        RECT b = MakeRect(x, client.bottom - kTaskbarHeight + 6, x + 130, client.bottom - 6);
+    for (int i = std::max(0, (int)g_windows.size() - 8); i < (int)g_windows.size(); ++i) {
+        RECT b = MakeRect(x, client.bottom - kTaskbarHeight + 6, x + 120, client.bottom - 6);
         DrawGradient(hdc, b, RGB(112, 164, 221), RGB(70, 118, 180));
-        DrawCentered(hdc, b, g_apps[g_windows[i].appIndex].name, RGB(255, 255, 255), 13, false);
-        x += 134;
+        DrawCentered(hdc, b, g_apps[g_windows[i].appIndex].name, RGB(255, 255, 255), 12, false);
+        x += 124;
     }
 
     std::time_t t = std::time(nullptr);
@@ -323,7 +333,13 @@ static void DrawStartMenu(HDC hdc, const RECT& client) {
         FillRect(hdc, &item, b);
         DeleteObject(b);
 
-        DrawBlock(hdc, MakeRect(item.left + 8, item.top + 4, item.right - 8, item.bottom - 3), g_apps[i].name + L"  -  " + g_apps[i].category, RGB(40, 40, 40), 13, false);
+        RECT icon = MakeRect(item.left + 4, item.top + 4, item.left + 22, item.bottom - 4);
+        HBRUSH ib = CreateSolidBrush(g_apps[i].iconColor);
+        FillRect(hdc, &icon, ib);
+        DeleteObject(ib);
+
+        DrawCentered(hdc, icon, std::wstring(1, g_apps[i].iconGlyph), RGB(255, 255, 255), 12, true);
+        DrawBlock(hdc, MakeRect(item.left + 28, item.top + 4, item.right - 8, item.bottom - 3), g_apps[i].name + L"  -  " + g_apps[i].category, RGB(40, 40, 40), 13, false);
     }
 
     HPEN p = CreatePen(PS_SOLID, 1, RGB(72, 125, 193));
@@ -343,8 +359,62 @@ static void PaintScene(HWND hwnd, HDC hdc) {
     DrawTaskbar(hdc, client);
     DrawStartMenu(hdc, client);
 
-    for (const auto& w : g_windows) {
-        DrawWindow(hdc, w);
+    for (const auto& w : g_windows) DrawWindow(hdc, w);
+}
+
+static void ApplyAppAction(AppWindow& w) {
+    switch (w.appIndex) {
+    case 0:
+        w.metric += 1;
+        w.memo += L"\r\n- note line #" + std::to_wstring(w.metric);
+        break;
+    case 1:
+        w.metric = (w.metric + 3) % 100;
+        break;
+    case 2:
+        w.metric += 2;
+        break;
+    case 3:
+        w.metric += 7;
+        break;
+    case 4:
+        w.metric = (w.metric + 1) % 31;
+        break;
+    case 5:
+        w.metric = (w.metric + 1) % 42;
+        break;
+    case 6:
+        w.metric += 10;
+        break;
+    case 7:
+        w.metric += 1;
+        break;
+    case 8:
+        w.toggle = !w.toggle;
+        w.metric += 1;
+        break;
+    case 9:
+        w.metric = 40 + (std::rand() % 55);
+        break;
+    case 10:
+        w.selection = (w.selection + 1) % 4;
+        w.metric = 15 + (std::rand() % 18);
+        break;
+    case 11:
+        w.metric += 1;
+        break;
+    case 12:
+        w.metric += 5;
+        break;
+    case 13:
+        w.metric += 1;
+        break;
+    case 14:
+        w.metric = std::rand() % 6 + 1;
+        break;
+    default:
+        w.metric += 1;
+        break;
     }
 }
 
@@ -356,10 +426,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         return 0;
 
     case WM_TIMER:
-        if (!g_windows.empty()) {
-            for (auto& w : g_windows) {
-                if (w.appIndex == 11 && w.toggle) w.metric += 1;
-            }
+        for (auto& w : g_windows) {
+            if (w.appIndex == 11 && w.toggle) w.metric += 1;
+            if (w.appIndex == 5 && w.toggle) w.metric = (w.metric + 1) % 42;
         }
         InvalidateRect(hwnd, nullptr, FALSE);
         return 0;
@@ -387,6 +456,14 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             }
         }
 
+        for (int i = 0; i < 15; ++i) {
+            if (PointInRectI(DesktopIconRect(i), x, y)) {
+                OpenAppWindow(i);
+                InvalidateRect(hwnd, nullptr, FALSE);
+                return 0;
+            }
+        }
+
         int hit = HitWindow(x, y);
         if (hit >= 0) {
             BringToFront(hit);
@@ -400,14 +477,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             }
 
             if (PointInRectI(WindowActionButtonRect(w), x, y)) {
-                if (w.appIndex == 14) {
-                    w.metric = std::rand() % 6 + 1;
-                } else {
-                    w.metric += 1;
-                }
-                if (w.appIndex == 0) {
-                    w.notes += L"\r\n- Quick line #" + std::to_wstring(w.metric);
-                }
+                ApplyAppAction(w);
                 InvalidateRect(hwnd, nullptr, FALSE);
                 return 0;
             }
@@ -435,15 +505,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
             InvalidateRect(hwnd, nullptr, FALSE);
             return 0;
-        }
-
-        if (x >= 16 && x <= 116 && y >= 24 && y <= 540) {
-            int iconIndex = (y - 24) / 86;
-            if (iconIndex >= 0 && iconIndex < 6) {
-                OpenAppWindow(iconIndex);
-                InvalidateRect(hwnd, nullptr, FALSE);
-                return 0;
-            }
         }
 
         g_startMenuOpen = false;
@@ -512,7 +573,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
         L"C-OS | Win7-style C++ Desktop Simulator",
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT,
-        1366, 768,
+        1440, 820,
         nullptr,
         nullptr,
         hInstance,

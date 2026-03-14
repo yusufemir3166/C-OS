@@ -10,9 +10,9 @@ Bu proje, **tam teşekküllü bir işletim sistemi** değil; C++ ile yazılmış
 - Başlat menüsü aç/kapa
 - Masaüstü ikonları (Notepad / Computer)
 - Start menüsü içinde **15 farklı uygulama** (Productivity, System, Media, Dev, Fun vb.)
-- Her uygulamada içerik kartları + metrik/toggle/variant etkileşimleri
-- Notepad Pro: not satırı ekleme ve metin içerik akışı
-- Game Center / Clock gibi uygulamalarda canlı durum metrikleri
+- Her uygulamanın kendi ikonu (harf + renk), kategori etiketi ve farklı aksiyon davranışı
+- Her pencerede metrik/toggle/variant butonları + uygulamaya özel canlı durum
+- Büyük içerik veri seti ile her uygulamada farklı feed blokları (`src/generated_app_content.h`)
 - Fare ile sürüklenebilir pencereler (ekran sınırına clamp)
 - Her pencerede kapatma (`X`) butonu
 
