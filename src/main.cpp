@@ -227,7 +227,7 @@ static std::wstring BuildAppContent(const AppWindow& w) {
     int base = (w.selection * 29 + w.metric) % 280;
     for (int i = 0; i < 8; ++i) {
         int idx = (base + i * 3) % 320;
-        text += std::wstring(L"• ") + kAppLore[w.appIndex][idx] + L"\r\n";
+        text += std::wstring(L"- ") + kAppLore[w.appIndex][idx] + L"\r\n";
     }
 
     if (w.appIndex == 0 && !w.memo.empty()) {
@@ -256,7 +256,7 @@ static void DrawWindow(HDC hdc, const AppWindow& w) {
     FillRect(hdc, &closeR, closeB);
     DeleteObject(closeB);
 
-    DrawCentered(hdc, MakeRect(w.rect.left + 10, w.rect.top, w.rect.right - 50, w.rect.top + 34), app.name + L"  •  " + app.category, RGB(255, 255, 255), 17, true);
+    DrawCentered(hdc, MakeRect(w.rect.left + 10, w.rect.top, w.rect.right - 50, w.rect.top + 34), app.name + L"  |  " + app.category, RGB(255, 255, 255), 17, true);
     DrawCentered(hdc, closeR, L"X", RGB(255, 255, 255), 16, true);
 
     HPEN border = CreatePen(PS_SOLID, 1, RGB(36, 90, 154));
