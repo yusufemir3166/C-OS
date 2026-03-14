@@ -1,0 +1,30 @@
+cmake_minimum_required(VERSION 3.16)
+project(C_OS LANGUAGES CXX)
+
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
+  message(FATAL_ERROR "This project targets Windows only (native or cross-compiled).")
+endif()
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+add_executable(C-OS WIN32
+  src/main.cpp
+  resources/version.rc
+)
+
+# Win32/GDI libraries
+ target_link_libraries(C-OS PRIVATE
+  user32
+  gdi32
+  shell32
+  msimg32
+)
+
+if(MSVC)
+  target_compile_options(C-OS PRIVATE "/utf-8")
+  target_link_options(C-OS PRIVATE
+    "/MANIFEST:EMBED"
+    "/MANIFESTINPUT:${CMAKE_CURRENT_SOURCE_DIR}/resources/app.manifest"
+  )
+endif()

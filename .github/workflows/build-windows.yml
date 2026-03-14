@@ -1,0 +1,30 @@
+name: Build C-OS EXE (Windows)
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Configure
+        run: cmake -S . -B build -G "Visual Studio 17 2022"
+
+      - name: Build Release
+        run: cmake --build build --config Release
+
+      - name: Upload C-OS.exe artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: C-OS-exe
+          path: build/Release/C-OS.exe
