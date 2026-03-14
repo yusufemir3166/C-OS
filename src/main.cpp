@@ -214,6 +214,125 @@ static void DrawDesktopIcon(HDC hdc, const RECT& rc, const AppDef& app) {
     DrawCentered(hdc, MakeRect(rc.left + 2, rc.top + 42, rc.right - 2, rc.bottom - 3), app.name, RGB(238, 247, 255), 12, false);
 }
 
+
+static void FillRectColor(HDC hdc, const RECT& rc, COLORREF c) {
+    HBRUSH b = CreateSolidBrush(c);
+    FillRect(hdc, &rc, b);
+    DeleteObject(b);
+}
+
+static void DrawPanel(HDC hdc, const RECT& rc, COLORREF bg, COLORREF border) {
+    FillRectColor(hdc, rc, bg);
+    HPEN p = CreatePen(PS_SOLID, 1, border);
+    HPEN oldP = (HPEN)SelectObject(hdc, p);
+    HGDIOBJ oldB = SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
+    Rectangle(hdc, rc.left, rc.top, rc.right, rc.bottom);
+    SelectObject(hdc, oldB);
+    SelectObject(hdc, oldP);
+    DeleteObject(p);
+}
+
+static void DrawProgressBar(HDC hdc, const RECT& rc, int value, COLORREF fill, COLORREF bg) {
+    DrawPanel(hdc, rc, bg, RGB(160, 170, 186));
+    int width = rc.right - rc.left - 2;
+    int clamped = ClampInt(value, 0, 100);
+    RECT bar = MakeRect(rc.left + 1, rc.top + 1, rc.left + 1 + (width * clamped) / 100, rc.bottom - 1);
+    FillRectColor(hdc, bar, fill);
+}
+
+static void DrawAppSpecificWidgets(HDC hdc, const AppWindow& w, const RECT& content) {
+    const int i = w.appIndex;
+    RECT left = MakeRect(content.left + 10, content.top + 10, content.left + 250, content.top + 120);
+    RECT right = MakeRect(content.left + 262, content.top + 10, content.right - 10, content.top + 120);
+
+    DrawPanel(hdc, left, RGB(246, 250, 255), RGB(170, 184, 205));
+    DrawPanel(hdc, right, RGB(252, 252, 252), RGB(170, 184, 205));
+
+    switch (i) {
+    case 0: // Notepad
+        DrawCentered(hdc, MakeRect(left.left, left.top + 4, left.right, left.top + 28), L"Recent Notes", RGB(40, 70, 120), 14, true);
+        DrawBlock(hdc, MakeRect(left.left + 8, left.top + 30, left.right - 8, left.bottom - 8), L"- standup points\r\n- release checklist\r\n- quick memo", RGB(35, 35, 35), 13, false);
+        DrawCentered(hdc, MakeRect(right.left, right.top + 4, right.right, right.top + 28), L"Words", RGB(40, 70, 120), 14, true);
+        DrawProgressBar(hdc, MakeRect(right.left + 10, right.top + 42, right.right - 10, right.top + 66), (int)(w.memo.size() % 101), RGB(66, 145, 230), RGB(233, 241, 252));
+        break;
+    case 1: // File Explorer
+        DrawCentered(hdc, MakeRect(left.left, left.top + 4, left.right, left.top + 28), L"Folders", RGB(120, 92, 20), 14, true);
+        DrawBlock(hdc, MakeRect(left.left + 8, left.top + 32, left.right - 8, left.bottom - 8), L"Projects\r\nDownloads\r\nDesktop\r\nArchives", RGB(35, 35, 35), 13, false);
+        DrawCentered(hdc, MakeRect(right.left, right.top + 4, right.right, right.top + 28), L"Disk Usage", RGB(120, 92, 20), 14, true);
+        DrawProgressBar(hdc, MakeRect(right.left + 10, right.top + 44, right.right - 10, right.top + 68), (w.metric * 3) % 101, RGB(246, 177, 44), RGB(250, 243, 225));
+        break;
+    case 2: // Terminal
+        DrawPanel(hdc, left, RGB(28, 31, 35), RGB(90, 98, 108));
+        DrawPanel(hdc, right, RGB(28, 31, 35), RGB(90, 98, 108));
+        DrawBlock(hdc, MakeRect(left.left + 8, left.top + 10, left.right - 8, left.bottom - 8), L"> build --release\r\n> run tests\r\n> deploy preview", RGB(110, 235, 139), 13, false);
+        DrawBlock(hdc, MakeRect(right.left + 8, right.top + 10, right.right - 8, right.bottom - 8), L"session: alpha\r\nstatus: connected\r\nlatency: 19ms", RGB(151, 205, 255), 13, false);
+        break;
+    case 3: // Calculator
+        DrawCentered(hdc, MakeRect(left.left, left.top + 4, left.right, left.top + 28), L"Display", RGB(22, 96, 57), 14, true);
+        DrawCentered(hdc, MakeRect(left.left + 8, left.top + 36, left.right - 8, left.top + 78), std::to_wstring(w.metric), RGB(22, 96, 57), 24, true);
+        DrawBlock(hdc, MakeRect(right.left + 8, right.top + 10, right.right - 8, right.bottom - 8), L"7 8 9 /\r\n4 5 6 *\r\n1 2 3 -\r\n0 . = +", RGB(35, 35, 35), 15, true);
+        break;
+    case 4: // Calendar
+        DrawCentered(hdc, MakeRect(left.left, left.top + 4, left.right, left.top + 28), L"Week Board", RGB(90, 61, 170), 14, true);
+        DrawBlock(hdc, MakeRect(left.left + 8, left.top + 32, left.right - 8, left.bottom - 8), L"Mon: Design\r\nTue: Build\r\nWed: Review", RGB(35, 35, 35), 13, false);
+        DrawProgressBar(hdc, MakeRect(right.left + 10, right.top + 44, right.right - 10, right.top + 68), (w.metric * 3) % 101, RGB(131, 102, 228), RGB(240, 235, 252));
+        break;
+    case 5: // Music
+        DrawCentered(hdc, MakeRect(left.left, left.top + 4, left.right, left.top + 28), L"Now Playing", RGB(175, 35, 94), 14, true);
+        DrawBlock(hdc, MakeRect(left.left + 8, left.top + 32, left.right - 8, left.bottom - 8), L"Focus Lo-Fi Mix\r\ntrack #" + std::to_wstring((w.metric % 12) + 1), RGB(35, 35, 35), 13, false);
+        DrawProgressBar(hdc, MakeRect(right.left + 10, right.top + 44, right.right - 10, right.top + 68), (w.metric * 5) % 101, RGB(226, 79, 133), RGB(252, 233, 241));
+        break;
+    case 6: // Video
+        DrawPanel(hdc, left, RGB(20, 22, 26), RGB(86, 90, 99));
+        DrawCentered(hdc, MakeRect(left.left, left.top + 38, left.right, left.bottom - 10), L"PLAYBACK", RGB(212, 220, 232), 18, true);
+        DrawProgressBar(hdc, MakeRect(right.left + 10, right.top + 44, right.right - 10, right.top + 68), w.metric % 101, RGB(240, 126, 71), RGB(250, 236, 225));
+        break;
+    case 7: // Browser
+        DrawBlock(hdc, MakeRect(left.left + 8, left.top + 10, left.right - 8, left.bottom - 8), L"Tabs\r\n- Docs\r\n- Dashboard\r\n- Issues", RGB(35, 35, 35), 13, false);
+        DrawBlock(hdc, MakeRect(right.left + 8, right.top + 10, right.right - 8, right.bottom - 8), L"Bookmarks\r\n- Portal\r\n- CI\r\n- Metrics", RGB(35, 35, 35), 13, false);
+        break;
+    case 8: // Settings
+        DrawBlock(hdc, MakeRect(left.left + 8, left.top + 10, left.right - 8, left.bottom - 8), L"Theme: " + std::wstring(w.toggle ? L"Dark" : L"Light") + L"\r\nScale: 100%\r\nLanguage: TR", RGB(35, 35, 35), 13, false);
+        DrawProgressBar(hdc, MakeRect(right.left + 10, right.top + 44, right.right - 10, right.top + 68), (w.metric * 9) % 101, RGB(106, 118, 132), RGB(235, 240, 247));
+        break;
+    case 9: // Task manager
+        DrawCentered(hdc, MakeRect(left.left, left.top + 4, left.right, left.top + 28), L"CPU", RGB(34, 98, 122), 14, true);
+        DrawProgressBar(hdc, MakeRect(left.left + 10, left.top + 42, left.right - 10, left.top + 66), w.metric % 101, RGB(87, 176, 214), RGB(230, 245, 251));
+        DrawCentered(hdc, MakeRect(right.left, right.top + 4, right.right, right.top + 28), L"Memory", RGB(34, 98, 122), 14, true);
+        DrawProgressBar(hdc, MakeRect(right.left + 10, right.top + 42, right.right - 10, right.top + 66), (w.metric + 18) % 101, RGB(117, 155, 220), RGB(234, 241, 252));
+        break;
+    case 10: // Weather
+        DrawCentered(hdc, MakeRect(left.left, left.top + 4, left.right, left.top + 28), L"City", RGB(37, 109, 163), 14, true);
+        DrawCentered(hdc, MakeRect(left.left + 8, left.top + 36, left.right - 8, left.top + 76), (w.selection % 2 == 0) ? L"Istanbul" : L"Berlin", RGB(37, 109, 163), 20, true);
+        DrawCentered(hdc, MakeRect(right.left + 8, right.top + 36, right.right - 8, right.top + 76), std::to_wstring(15 + (w.metric % 15)) + L" C", RGB(37, 109, 163), 24, true);
+        break;
+    case 11: // Clock
+        DrawCentered(hdc, MakeRect(left.left + 6, left.top + 24, left.right - 6, left.bottom - 6), std::to_wstring(w.metric), RGB(37, 120, 78), 28, true);
+        DrawCentered(hdc, MakeRect(right.left + 6, right.top + 40, right.right - 6, right.bottom - 6), w.toggle ? L"RUNNING" : L"PAUSED", RGB(37, 120, 78), 16, true);
+        break;
+    case 12: // Paint
+        DrawPanel(hdc, left, RGB(255, 246, 252), RGB(220, 170, 200));
+        DrawBlock(hdc, MakeRect(left.left + 8, left.top + 8, left.right - 8, left.bottom - 8), L"Palette\r\n- Red\r\n- Blue\r\n- Green", RGB(76, 48, 66), 13, false);
+        DrawPanel(hdc, right, RGB(250, 252, 255), RGB(170, 184, 205));
+        for (int k = 0; k < 6; ++k) {
+            RECT sw = MakeRect(right.left + 14 + k * 26, right.top + 46, right.left + 34 + k * 26, right.top + 66);
+            FillRectColor(hdc, sw, RGB(50 + k * 30, 80 + k * 20, 180 - k * 20));
+        }
+        break;
+    case 13: // Mail
+        DrawBlock(hdc, MakeRect(left.left + 8, left.top + 10, left.right - 8, left.bottom - 8), L"Inbox\r\n- Release update\r\n- Team sync\r\n- Code review", RGB(35, 35, 35), 13, false);
+        DrawBlock(hdc, MakeRect(right.left + 8, right.top + 10, right.right - 8, right.bottom - 8), L"Compose\r\nTo: team@cos.local\r\nSubject: Status", RGB(35, 35, 35), 13, false);
+        break;
+    case 14: // Game Center
+        DrawCentered(hdc, MakeRect(left.left, left.top + 4, left.right, left.top + 28), L"Dice", RGB(140, 92, 16), 14, true);
+        DrawCentered(hdc, MakeRect(left.left + 8, left.top + 36, left.right - 8, left.top + 82), std::to_wstring((w.metric % 6) + 1), RGB(140, 92, 16), 28, true);
+        DrawProgressBar(hdc, MakeRect(right.left + 10, right.top + 44, right.right - 10, right.top + 68), (w.metric * 17) % 101, RGB(247, 170, 50), RGB(251, 240, 218));
+        break;
+    default:
+        break;
+    }
+}
+
 static std::wstring BuildAppContent(const AppWindow& w) {
     const AppDef& app = g_apps[w.appIndex];
     std::wstring text;
@@ -272,19 +391,13 @@ static void DrawWindow(HDC hdc, const AppWindow& w) {
     DrawButton(hdc, WindowSelectButtonRect(w), L"Variant " + std::to_wstring(w.selection + 1));
 
     RECT content = WindowContentRect(w);
-    HBRUSH cB = CreateSolidBrush(RGB(255, 255, 255));
-    FillRect(hdc, &content, cB);
-    DeleteObject(cB);
+    DrawPanel(hdc, content, RGB(255, 255, 255), RGB(187, 198, 216));
 
-    HPEN cP = CreatePen(PS_SOLID, 1, RGB(187, 198, 216));
-    HPEN oldCp = (HPEN)SelectObject(hdc, cP);
-    HGDIOBJ oldCb = SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
-    Rectangle(hdc, content.left, content.top, content.right, content.bottom);
-    SelectObject(hdc, oldCb);
-    SelectObject(hdc, oldCp);
-    DeleteObject(cP);
+    DrawAppSpecificWidgets(hdc, w, content);
 
-    DrawBlock(hdc, MakeRect(content.left + 10, content.top + 8, content.right - 10, content.bottom - 8), BuildAppContent(w), RGB(25, 25, 25), 15, false);
+    RECT feed = MakeRect(content.left + 10, content.top + 134, content.right - 10, content.bottom - 10);
+    DrawPanel(hdc, feed, RGB(255, 255, 255), RGB(201, 210, 222));
+    DrawBlock(hdc, MakeRect(feed.left + 8, feed.top + 8, feed.right - 8, feed.bottom - 8), BuildAppContent(w), RGB(25, 25, 25), 14, false);
 }
 
 static void DrawDesktop(HDC hdc, const RECT& client) {
