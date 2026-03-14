@@ -21,17 +21,17 @@ Bu proje, **tam teşekküllü bir işletim sistemi** değil; C++ ile yazılmış
 
 ### 1) GitHub Actions artifact (en kolay)
 
-Repodaki `.github/workflows/build-windows.yml` otomatik olarak Windows'ta derler ve `C-OS.exe` artifact'ini üretir.
+Repodaki `.github/workflows/build-windows.yml` workflow'u her push/PR'de Windows'ta derler ve `C-OS.exe` artifact'ini üretir.
 
 - **Actions** sekmesine gir
 - Son çalışan `Build C-OS EXE (Windows)` workflow'unu aç
 - `C-OS-exe` artifact'ini indir
 
-> Not: `release` işi pull request'lerde **bilerek** skip olur; sadece `v*` tag push'larında çalışır.
+> Not: Release artık ayrı bir workflow'da (`.github/workflows/release-windows.yml`) çalışır; bu yüzden build workflow'unda skip görünen release adımı yoktur.
 
 ### 2) Tag ile direkt GitHub Release'e EXE koyma
 
-Bir tag push edersen workflow `C-OS.exe` dosyasını release asset olarak da yükler.
+Bir tag push edersen `.github/workflows/release-windows.yml` workflow'u `C-OS.exe` dosyasını release asset olarak yükler.
 
 ```bash
 git tag v0.1.0
