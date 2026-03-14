@@ -193,8 +193,8 @@ static void BringToFront(int index) {
 static void ClampWindowToClient(AppWindow& w, const RECT& client) {
     int width = w.rect.right - w.rect.left;
     int height = w.rect.bottom - w.rect.top;
-    int maxLeft = std::max(0, client.right - width);
-    int maxTop = std::max(0, client.bottom - kTaskbarHeight - height);
+    int maxLeft = std::max(0, static_cast<int>(client.right) - width);
+    int maxTop = std::max(0, static_cast<int>(client.bottom) - kTaskbarHeight - height);
     w.rect.left = ClampInt(w.rect.left, 0, maxLeft);
     w.rect.top = ClampInt(w.rect.top, 0, maxTop);
     w.rect.right = w.rect.left + width;
