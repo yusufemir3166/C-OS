@@ -4,6 +4,7 @@ Bu proje, **tam teşekküllü bir işletim sistemi** değil; C++ ile yazılmış
 
 ## Özellikler
 
+- İlk açılışta kurulum ekranı (TR/EN dil seçimi + kullanıcı adı + şifre)
 - Win32 API ile çizilmiş masaüstü görünümü
 - Altta görev çubuğu ve "Start" butonu
 - Basit saat + tarih gösterimi

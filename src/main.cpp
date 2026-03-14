@@ -45,6 +45,14 @@ static POINT g_dragOffset{};
 static std::vector<AppDef> g_apps;
 static std::vector<AppWindow> g_windows;
 
+static bool g_setupMode = true;
+static bool g_langTR = true;
+static std::wstring g_setupUsername;
+static std::wstring g_setupPassword;
+static bool g_setupShowPassword = false;
+// 0: none, 1: username, 2: password
+static int g_setupFocusField = 0;
+
 static int ClampInt(int v, int lo, int hi) {
     return std::max(lo, std::min(v, hi));
 }
@@ -78,6 +86,44 @@ static RECT DesktopIconRect(int index) {
     int left = 14 + col * 92;
     int top = 20 + row * 82;
     return MakeRect(left, top, left + 86, top + 74);
+}
+
+static RECT SetupPanelRect(const RECT& client) {
+    int w = 780;
+    int h = 460;
+    int l = (client.right - w) / 2;
+    int t = (client.bottom - h) / 2;
+    return MakeRect(l, t, l + w, t + h);
+}
+
+static RECT SetupLangTRRect(const RECT& client) {
+    RECT p = SetupPanelRect(client);
+    return MakeRect(p.left + 40, p.top + 112, p.left + 210, p.top + 152);
+}
+
+static RECT SetupLangENRect(const RECT& client) {
+    RECT p = SetupPanelRect(client);
+    return MakeRect(p.left + 220, p.top + 112, p.left + 390, p.top + 152);
+}
+
+static RECT SetupUserRect(const RECT& client) {
+    RECT p = SetupPanelRect(client);
+    return MakeRect(p.left + 40, p.top + 200, p.right - 40, p.top + 244);
+}
+
+static RECT SetupPassRect(const RECT& client) {
+    RECT p = SetupPanelRect(client);
+    return MakeRect(p.left + 40, p.top + 278, p.right - 40, p.top + 322);
+}
+
+static RECT SetupShowPassRect(const RECT& client) {
+    RECT p = SetupPanelRect(client);
+    return MakeRect(p.left + 40, p.top + 332, p.left + 250, p.top + 362);
+}
+
+static RECT SetupContinueRect(const RECT& client) {
+    RECT p = SetupPanelRect(client);
+    return MakeRect(p.right - 230, p.bottom - 70, p.right - 40, p.bottom - 30);
 }
 
 static RECT WindowTitleRect(const AppWindow& w) { return MakeRect(w.rect.left, w.rect.top, w.rect.right, w.rect.top + 34); }
@@ -433,9 +479,73 @@ static void DrawStartMenu(HDC hdc, const RECT& client) {
     DeleteObject(p);
 }
 
+static std::wstring MaskPassword(const std::wstring& p) {
+    return std::wstring(p.size(), L'*');
+}
+
+static void DrawSetupWizard(HDC hdc, const RECT& client) {
+    DrawGradient(hdc, client, RGB(69, 120, 197), RGB(29, 66, 130));
+
+    RECT panel = SetupPanelRect(client);
+    DrawPanel(hdc, panel, RGB(247, 250, 255), RGB(103, 132, 178));
+
+    RECT head = MakeRect(panel.left, panel.top, panel.right, panel.top + 64);
+    DrawGradient(hdc, head, RGB(97, 156, 228), RGB(61, 117, 191));
+
+    DrawCentered(hdc, MakeRect(panel.left + 20, panel.top + 8, panel.right - 20, panel.top + 36),
+        g_langTR ? L"C-OS Kurulum Sihirbazi" : L"C-OS Setup Wizard", RGB(255, 255, 255), 24, true);
+    DrawCentered(hdc, MakeRect(panel.left + 20, panel.top + 34, panel.right - 20, panel.top + 60),
+        g_langTR ? L"Dil secin, kullanici adi ve sifre olusturun" : L"Choose language, create username and password", RGB(228, 240, 255), 14, false);
+
+    RECT tr = SetupLangTRRect(client);
+    RECT en = SetupLangENRect(client);
+    DrawButton(hdc, tr, L"Turkce");
+    DrawButton(hdc, en, L"English");
+
+    if (g_langTR) {
+        DrawPanel(hdc, tr, RGB(215, 234, 255), RGB(74, 125, 204));
+        DrawCentered(hdc, tr, L"Turkce", RGB(22, 69, 143), 14, true);
+    } else {
+        DrawPanel(hdc, en, RGB(215, 234, 255), RGB(74, 125, 204));
+        DrawCentered(hdc, en, L"English", RGB(22, 69, 143), 14, true);
+    }
+
+    RECT user = SetupUserRect(client);
+    RECT pass = SetupPassRect(client);
+    DrawPanel(hdc, user, RGB(255, 255, 255), g_setupFocusField == 1 ? RGB(64, 126, 211) : RGB(170, 182, 199));
+    DrawPanel(hdc, pass, RGB(255, 255, 255), g_setupFocusField == 2 ? RGB(64, 126, 211) : RGB(170, 182, 199));
+
+    DrawBlock(hdc, MakeRect(user.left + 10, user.top + 12, user.right - 10, user.bottom - 10),
+        (g_langTR ? L"Kullanici adi: " : L"Username: ") + g_setupUsername, RGB(26, 26, 26), 16, false);
+
+    std::wstring shownPass = g_setupShowPassword ? g_setupPassword : MaskPassword(g_setupPassword);
+    DrawBlock(hdc, MakeRect(pass.left + 10, pass.top + 12, pass.right - 10, pass.bottom - 10),
+        (g_langTR ? L"Sifre: " : L"Password: ") + shownPass, RGB(26, 26, 26), 16, false);
+
+    RECT showPass = SetupShowPassRect(client);
+    DrawButton(hdc, showPass, g_setupShowPassword
+        ? (g_langTR ? L"Sifreyi gizle" : L"Hide password")
+        : (g_langTR ? L"Sifreyi goster" : L"Show password"));
+
+    RECT cont = SetupContinueRect(client);
+    bool ready = g_setupUsername.size() >= 3 && g_setupPassword.size() >= 3;
+    DrawPanel(hdc, cont, ready ? RGB(208, 234, 197) : RGB(235, 238, 244), ready ? RGB(80, 150, 72) : RGB(160, 170, 184));
+    DrawCentered(hdc, cont, g_langTR ? L"Kurulumu Tamamla" : L"Finish Setup", ready ? RGB(39, 97, 36) : RGB(84, 95, 112), 15, true);
+
+    std::wstring tips = g_langTR
+        ? L"Ipuclari:\r\n- En az 3 karakter kullanin\r\n- TAB ile alan degistirebilirsiniz\r\n- ENTER ile kurulumu tamamlayabilirsiniz"
+        : L"Tips:\r\n- Use at least 3 characters\r\n- Press TAB to switch fields\r\n- Press ENTER to finish setup";
+    DrawBlock(hdc, MakeRect(panel.left + 40, panel.bottom - 118, panel.right - 260, panel.bottom - 20), tips, RGB(47, 61, 86), 13, false);
+}
+
 static void PaintScene(HWND hwnd, HDC hdc) {
     RECT client;
     GetClientRect(hwnd, &client);
+
+    if (g_setupMode) {
+        DrawSetupWizard(hdc, client);
+        return;
+    }
 
     DrawDesktop(hdc, client);
     DrawTaskbar(hdc, client);
@@ -521,6 +631,42 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         RECT client;
         GetClientRect(hwnd, &client);
 
+        if (g_setupMode) {
+            if (PointInRectI(SetupLangTRRect(client), x, y)) {
+                g_langTR = true;
+                InvalidateRect(hwnd, nullptr, FALSE);
+                return 0;
+            }
+            if (PointInRectI(SetupLangENRect(client), x, y)) {
+                g_langTR = false;
+                InvalidateRect(hwnd, nullptr, FALSE);
+                return 0;
+            }
+            if (PointInRectI(SetupUserRect(client), x, y)) {
+                g_setupFocusField = 1;
+                InvalidateRect(hwnd, nullptr, FALSE);
+                return 0;
+            }
+            if (PointInRectI(SetupPassRect(client), x, y)) {
+                g_setupFocusField = 2;
+                InvalidateRect(hwnd, nullptr, FALSE);
+                return 0;
+            }
+            if (PointInRectI(SetupShowPassRect(client), x, y)) {
+                g_setupShowPassword = !g_setupShowPassword;
+                InvalidateRect(hwnd, nullptr, FALSE);
+                return 0;
+            }
+            if (PointInRectI(SetupContinueRect(client), x, y) && g_setupUsername.size() >= 3 && g_setupPassword.size() >= 3) {
+                g_setupMode = false;
+                g_setupFocusField = 0;
+                OpenAppWindow(8); // settings
+                InvalidateRect(hwnd, nullptr, FALSE);
+                return 0;
+            }
+            return 0;
+        }
+
         if (PointInRectI(StartButtonRect(client), x, y)) {
             g_startMenuOpen = !g_startMenuOpen;
             InvalidateRect(hwnd, nullptr, FALSE);
@@ -593,6 +739,35 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         InvalidateRect(hwnd, nullptr, FALSE);
         return 0;
     }
+
+
+    case WM_CHAR:
+        if (g_setupMode) {
+            if (wParam == VK_TAB) {
+                g_setupFocusField = (g_setupFocusField == 1) ? 2 : 1;
+                InvalidateRect(hwnd, nullptr, FALSE);
+                return 0;
+            }
+            if (wParam == VK_RETURN) {
+                if (g_setupUsername.size() >= 3 && g_setupPassword.size() >= 3) {
+                    g_setupMode = false;
+                    g_setupFocusField = 0;
+                    OpenAppWindow(8);
+                    InvalidateRect(hwnd, nullptr, FALSE);
+                }
+                return 0;
+            }
+            if (g_setupFocusField == 0) return 0;
+            std::wstring* target = (g_setupFocusField == 1) ? &g_setupUsername : &g_setupPassword;
+            if (wParam == VK_BACK) {
+                if (!target->empty()) target->pop_back();
+            } else if (wParam >= 32 && wParam <= 126) {
+                if (target->size() < 24) target->push_back((wchar_t)wParam);
+            }
+            InvalidateRect(hwnd, nullptr, FALSE);
+            return 0;
+        }
+        break;
 
     case WM_MOUSEMOVE:
         if (g_dragging && g_draggingWindow >= 0 && g_draggingWindow < (int)g_windows.size()) {
